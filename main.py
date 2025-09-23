@@ -2,14 +2,17 @@ from pygame_functions import *
 
 #variables
 
+targetFps = 144
+
 objects = []
 balls = []
-#BALL_SPRITES = ['1ball.png','2ball.png','3ball.png','4ball.png','5ball.png','6ball.png','7ball.png','8ball.png','1ball.png','2ball.png','3ball.png','4ball.png','5ball.png','6ball.png','7ball.png','cueball.png',]
-BALL_SPRITES = ['1ball.png','1ball.png','1ball.png','1ball.png','1ball.png','1ball.png','1ball.png','8ball.png','2ball.png','2ball.png','2ball.png','2ball.png','2ball.png','2ball.png','2ball.png','cueball.png',]
+BALL_SPRITES = ['1ball.png','2ball.png','3ball.png','4ball.png','5ball.png','6ball.png','7ball.png','8ball.png','9ball.png','10ball.png','11ball.png','12ball.png','13ball.png','14ball.png','15ball.png','cueball.png',]
 
 foul = False
 gameOver = False
+ballInHand = False
 turn = 0
+fps = 0
 GRAVITY = 9.81
 SPINNING_FRICTION = 0.2
 ROLLING_FRICTION = 0.1
@@ -38,6 +41,17 @@ def rackBalls():
     balls[5].moveBall(1259,426)
     balls[9].moveBall(1259,402)
     balls[15].moveBall(425,450)
+
+#function to get the cross product of two vectors
+
+def crossProduct(vectorA,vectorB):
+	result = [0,0,0]
+	result[0] = vectorA[1]*vectorB[2] - vectorA[2]*vectorB[1]
+	result[1] = -vectorA[0]*vectorB[2] - vectorA[2]*vectorB[0]
+	result[2] = vectorA[0]*vectorB[1] - vectorA[1]*vectorB[0]
+
+	return result
+
     
 #classes
 
@@ -66,11 +80,13 @@ class Ball(Object):
             if object.sprite != self.sprite:
                 if touching(object.sprite,self.sprite):
                     return True
+                
+    def dragBall(self):
+        if spriteClicked(self.sprite):
+            self.xpos = mouseX()
+            self.ypos = mouseY()
+            moveSprite(self.sprite,self.xpos,self.ypos,centre=True)
 
-
-
-        
-        
 
 #MAIN**********************************
 
@@ -87,15 +103,35 @@ for ball in balls:
     objects.append(ball)
 rackBalls()
 
+ballInHandLabel = newLabel('Ball not in hand',20,'arial','black',0,0,'white')
+fpsLabel = newLabel('0',20,'arial','black',0,25,'white')
+showLabel(ballInHandLabel)
+showLabel(fpsLabel)
+
 while not gameOver:
 
+    #detect collisions of balls
     for i in range(len(balls)):
         if balls[i].detectCollisions(objects):
             print(i+1)
                 
+    
+    #toggle ball in hand
+    if spriteClicked(ballInHandLabel):
+        if ballInHand:
+            ballInHandLabel.update('ball not in hand','black','white')
+            ballInHand = False
+        else:
+            ballInHandLabel.update('ball in hand','black','white')
+            ballInHand = True
+        pause(100)
 
-    tick(30)
+    #allows ball in hand program to run
+    if ballInHand == True:
+        balls[15].dragBall()
 
-
+    #update fps
+    fps = 'fps: ' + str(tick(targetFps).__round__(0))[:-2]
+    fpsLabel.update(fps,'black','white')
 
 endWait()
