@@ -247,17 +247,15 @@ while not gameOver:
         if event.type == pygame.QUIT:
             gameOver = True
         
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            pos = event.pos
-            if ballInHandLabel.rect.collidepoint(pos):
+        elif spriteClicked(ballInHandLabel):
                 ballInHand = not ballInHand
                 ballInHandLabel.update('ball in hand' if ballInHand else 'ball not in hand', 'black', 'white')
 
-            elif startTurnLabel.rect.collidepoint(pos):
-                turnOver = False
-                ballInHand = False
-                ballInHandLabel.update('ball not in hand', 'black', 'white')
-                balls[15].setSpeed(200, 200)
+        elif spriteClicked(startTurnLabel):
+            turnOver = False
+            ballInHand = False
+            ballInHandLabel.update('ball not in hand', 'black', 'white')
+            balls[15].setSpeed(200, 200)
     
     if ballInHand:
         balls[15].dragBall()
