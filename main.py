@@ -1,8 +1,9 @@
 from pygame_functions import *
+import math
 
 #variables
 
-targetFps = 144
+targetFps = 60
 
 objects = []
 balls = []
@@ -11,12 +12,13 @@ BORDER_SPRITES = ['horizontal_border.png','vertical_border.png']
 foul = False
 gameOver = False
 ballInHand = False
-bordersVisible = False
 turn = 0
-fps = 0
+fps = targetFps
 GRAVITY = 9.81
 SPINNING_FRICTION = 0.2
-ROLLING_FRICTION = 0.1
+ROLLING_FRICTION = 0.01
+BALL_RESTITUTION = 0.9
+CUSHION_RESTITUTION = 0.9
 RADIUS = 12
 BOARD_WIDTH = 1500
 BOARD_HEIGHT = 750
@@ -66,10 +68,12 @@ def initialiseBorders():
 #classes
 
 class Object:
-    def __init__(self,Pxpos,Pypos,Psprite):
+    def __init__(self,Pxpos,Pypos,Psprite,Prestitution):
         self.xpos = Pxpos
         self.ypos = Pypos
-        self.sprite = makeSprite(Psprite)
+        self.png = Psprite
+        self.sprite = makeSprite(self.png)
+        self.restitution = Prestitution
 
     def moveObject(self,newX,newY):
         self.xpos = newX
@@ -82,32 +86,114 @@ class Object:
         showSprite(self.sprite)
 
 class Ball(Object):
-    def __init__(self,Pxpos,Pypos,Psprite):
-        super().__init__(Pxpos,Pypos,Psprite)
+    def __init__(self,Pxpos,Pypos,Psprite,Prestitution):
+        super().__init__(Pxpos,Pypos,Psprite,Prestitution)
+        self.png = Psprite
+        self.yspeed = 0
+        self.xspeed = 0
+        self.yacceleration = 0
+        self.xacceleration = 0
+        self.yangular = 0
+        self.xangular = 0
 
     def detectCollisions(self,objects):
         for object in objects:
             if object.sprite != self.sprite:
                 if touching(object.sprite,self.sprite):
+                    self.collide(object)
                     return True
-                
+
+    def collide(self,object):
+
+        if object in balls:
+
+            e = self.restitution*object.restitution
+            theta = math.atan2((object.ypos-self.ypos),(object.xpos-self.xpos))
+            cos = math.cos(theta)
+            sin = math.sin(theta)
+            sbParallel = self.xspeed*cos + self.yspeed*sin
+            sbPerpendicular = -self.xspeed*sin + self.yspeed*cos
+
+            obParallel = object.xspeed*cos + object.yspeed*sin
+            obPerpendicular = -object.xspeed*sin + object.yspeed*cos
+
+            saParallel = 0.5 * (sbParallel + obParallel - e * (sbParallel - obParallel))
+            saPerpendicular = sbPerpendicular
+
+            oaParallel = 0.5 * (sbParallel + obParallel + e * (sbParallel - obParallel))
+            oaPerpendicular = obPerpendicular
+
+
+            #fix overlapping balls
+            dx = object.xpos - self.xpos
+            dy = object.ypos - self.ypos
+            distance = math.sqrt(dx**2 + dy**2)
+            min_dist = 2 * RADIUS  
+
+            if distance < min_dist:
+                overlap = min_dist - distance
+                # Normalize vector between balls
+                nx = dx / distance
+                ny = dy / distance
+                # Push balls apart
+                self.xpos -= nx * overlap / 2
+                self.ypos -= ny * overlap / 2
+                object.xpos += nx * overlap / 2
+                object.ypos += ny * overlap / 2
+
+            self.xspeed = saParallel*cos-saPerpendicular*sin
+            self.yspeed = saParallel*sin+saPerpendicular*cos
+
+            object.xspeed = oaParallel*cos-oaPerpendicular*sin
+            object.yspeed = oaParallel*sin+oaPerpendicular*cos
+
+
+
+
+        else:
+            if object in borders:
+                if object.png== 'horizontal_border.png':
+                    self.yspeed *= -1
+                else:
+                    self.xspeed *= -1
+
+    def move(self):
+        
+        self.xacceleration = -self.xspeed*ROLLING_FRICTION
+        self.yacceleration = -self.yspeed*ROLLING_FRICTION
+
+        self.xspeed += self.xacceleration
+        self.yspeed += self.yacceleration
+
+        if abs(self.xspeed) < 3:
+            self.xspeed = 0
+        if abs(self.yspeed) < 3:
+            self.yspeed = 0
+
+        self.xpos += self.xspeed*(1/(int(fps)+1))
+        self.ypos += self.yspeed*(1/(int(fps)+1))
+
+        self.draw()
+
+        return (self.xspeed != 0 or self.yspeed != 0)
+
     def dragBall(self):
         if spriteClicked(self.sprite):
             self.xpos = mouseX()
             self.ypos = mouseY()
             moveSprite(self.sprite,self.xpos,self.ypos,centre=True)
 
+    def setSpeed(self,x,y):
+        self.xspeed = int(x)
+        self.yspeed = int(y)
+
 class Border(Object):
-    def __init__(self,Pxpos,Pypos,Psprite):
-        super().__init__(Pxpos,Pypos,Psprite)
+    def __init__(self,Pxpos,Pypos,Psprite,Prestitution):
+        super().__init__(Pxpos,Pypos,Psprite,Prestitution)
+        self.png = Psprite
         moveSprite(self.sprite,self.xpos,self.ypos)
-        self.draw()
-    def draw(self):
-        global bordersVisible
-        if bordersVisible:
-            showSprite(self.sprite)
-        else:
-            hideSprite(self.sprite)
+    
+
 
 
 #MAIN**********************************
@@ -119,8 +205,8 @@ setBackgroundImage('table.png')
 #at the start of the game, all of the balls will be on the table 
 #the cue ball is ball 16
 for i in range (len(BALL_SPRITES)):
-    balls.append(Ball(0,0,BALL_SPRITES[i]))
-    print(i)
+    balls.append(Ball(0,0,BALL_SPRITES[i],BALL_RESTITUTION))
+
 
 for ball in balls:
     objects.append(ball)
@@ -128,59 +214,66 @@ rackBalls()
 
 
 ballInHandLabel = newLabel('Ball not in hand',20,'arial','black',0,0,'white')
-bordersLabel = newLabel('borders off',20,'arial','black',0,25,'white')
-fpsLabel = newLabel('0',20,'arial','black',0,50,'white')
+startTurnLabel = newLabel('Start',20,'arial','black',0,50,'white')
+fpsLabel = newLabel('0',20,'arial','black',0,25,'white')
 
 showLabel(ballInHandLabel)
-showLabel(bordersLabel)
+showLabel(startTurnLabel)
 showLabel(fpsLabel)
 
 #borders
 borders = []
-borders.append(Border(0,0,BORDER_SPRITES[0]))
-borders.append(Border(2,697,BORDER_SPRITES[0]))
-borders.append(Border(0,0,BORDER_SPRITES[1]))
-borders.append(Border(1447,-5,BORDER_SPRITES[1]))
+borders.append(Border(0,0,BORDER_SPRITES[0],CUSHION_RESTITUTION))
+borders.append(Border(2,697,BORDER_SPRITES[0],CUSHION_RESTITUTION))
+borders.append(Border(0,0,BORDER_SPRITES[1],CUSHION_RESTITUTION))
+borders.append(Border(1447,-5,BORDER_SPRITES[1],CUSHION_RESTITUTION))
 
 for border in borders:
     objects.append(border)
 
+clock = pygame.time.Clock()
+pause(1000)
+
+mouseWasDown = False
+turnOver = True
 
 while not gameOver:
+    fps = clock.tick(targetFps)
+    actual_fps = clock.get_fps()
+    fpsLabel.update('fps: {}'.format(actual_fps), 'black', 'white')
 
-    #detect collisions of balls
-    for i in range(len(balls)):
-        if balls[i].detectCollisions(objects):
-            print(i+1)
-                
-    #toggle ball in hand
-    if spriteClicked(ballInHandLabel):
-        if ballInHand:
-            ballInHandLabel.update('ball not in hand','black','white')
-            ballInHand = False
-        else:
-            ballInHandLabel.update('ball in hand','black','white')
-            ballInHand = True
-        pause(200)
 
-    #toggle border visibility
-    if spriteClicked(bordersLabel):
-        if bordersVisible:
-            bordersLabel.update('borders off','black','white')
-            bordersVisible = False
-        else:
-            bordersLabel.update('borders on','black','white')
-            bordersVisible = True
-        for border in borders:
-                border.draw()
-        pause(200)
-  
-    #check if ball in hand
-    if ballInHand == True:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            gameOver = True
+        
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            pos = event.pos
+            if ballInHandLabel.rect.collidepoint(pos):
+                ballInHand = not ballInHand
+                ballInHandLabel.update('ball in hand' if ballInHand else 'ball not in hand', 'black', 'white')
+
+            elif startTurnLabel.rect.collidepoint(pos):
+                turnOver = False
+                ballInHand = False
+                ballInHandLabel.update('ball not in hand', 'black', 'white')
+                balls[15].setSpeed(200, 200)
+    
+    if ballInHand:
         balls[15].dragBall()
 
-    #update fps
-    fps = 'fps: ' + str(tick(targetFps).__round__(0))[:-2]
-    fpsLabel.update(fps,'black','white')
 
+    # Move balls if turn active
+    if not turnOver:
+        ballMoving = False
+        for ball in balls:
+            if ball.move():
+                ballMoving = True
+            ball.detectCollisions(objects)
+        if not ballMoving:
+            turnOver = True
+
+    updateDisplay()   
+
+    
 endWait()
