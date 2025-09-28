@@ -17,8 +17,8 @@ fps = targetFps
 GRAVITY = 9.81
 SPINNING_FRICTION = 0.2
 ROLLING_FRICTION = 0.01
-BALL_RESTITUTION = 0.9
-CUSHION_RESTITUTION = 0.9
+BALL_RESTITUTION = 0.98
+CUSHION_RESTITUTION = 0.95
 RADIUS = 12
 BOARD_WIDTH = 1500
 BOARD_HEIGHT = 750
@@ -165,10 +165,11 @@ class Ball(Object):
         self.xspeed += self.xacceleration
         self.yspeed += self.yacceleration
 
-        if abs(self.xspeed) < 3:
-            self.xspeed = 0
-        if abs(self.yspeed) < 3:
-            self.yspeed = 0
+        totalSpeed = sum((ball.xspeed + ball.yspeed) for ball in balls)
+        if totalSpeed < 100:
+            v = math.sqrt(self.xspeed**2 + self.yspeed**2)
+            if v < 15:
+                self.xspeed,self.yspeed = 0,0
 
         self.xpos += self.xspeed*(1/(int(fps)+1))
         self.ypos += self.yspeed*(1/(int(fps)+1))
@@ -255,7 +256,7 @@ while not gameOver:
             turnOver = False
             ballInHand = False
             ballInHandLabel.update('ball not in hand', 'black', 'white')
-            balls[15].setSpeed(200, 200)
+            balls[15].setSpeed(500, 200)
     
     if ballInHand:
         balls[15].dragBall()
