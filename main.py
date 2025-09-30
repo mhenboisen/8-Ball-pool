@@ -3,6 +3,8 @@ import math
 
 #variables
 
+setAutoUpdate(False)
+
 targetFps = 60
 
 objects = []
@@ -12,6 +14,7 @@ BORDER_SPRITES = ['horizontal_border.png','vertical_border.png']
 foul = False
 gameOver = False
 ballInHand = False
+stopBalls = True
 turn = 0
 fps = targetFps
 GRAVITY = 9.81
@@ -64,6 +67,15 @@ def initialiseBorders():
     showLabel(bordersLabel)
     showLabel(fpsLabel)
 
+def sumSpeeds(balls):
+    total = 0
+    for ball in balls:
+        total += ball.xspeed + ball.yspeed
+
+    if total < 100:
+        return True
+    return False
+
     
 #classes
 
@@ -104,10 +116,9 @@ class Ball(Object):
                     return True
 
     def collide(self,object):
-
+        e = self.restitution*object.restitution
         if object in balls:
 
-            e = self.restitution*object.restitution
             theta = math.atan2((object.ypos-self.ypos),(object.xpos-self.xpos))
             cos = math.cos(theta)
             sin = math.sin(theta)
@@ -132,10 +143,8 @@ class Ball(Object):
 
             if distance < min_dist:
                 overlap = min_dist - distance
-                # Normalize vector between balls
                 nx = dx / distance
                 ny = dy / distance
-                # Push balls apart
                 self.xpos -= nx * overlap / 2
                 self.ypos -= ny * overlap / 2
                 object.xpos += nx * overlap / 2
@@ -152,10 +161,10 @@ class Ball(Object):
 
         else:
             if object in borders:
-                if object.png== 'horizontal_border.png':
-                    self.yspeed *= -1
+                if object.png == 'horizontal_border.png':
+                    self.yspeed *= -e
                 else:
-                    self.xspeed *= -1
+                    self.xspeed *= -e
 
     def move(self):
         
@@ -165,16 +174,16 @@ class Ball(Object):
         self.xspeed += self.xacceleration
         self.yspeed += self.yacceleration
 
-        totalSpeed = sum((ball.xspeed + ball.yspeed) for ball in balls)
-        if totalSpeed < 100:
-            v = math.sqrt(self.xspeed**2 + self.yspeed**2)
-            if v < 15:
+
+        if stopBalls:
+            v = self.xspeed**2 + self.yspeed**2
+            if v < 10:
                 self.xspeed,self.yspeed = 0,0
 
         self.xpos += self.xspeed*(1/(int(fps)+1))
         self.ypos += self.yspeed*(1/(int(fps)+1))
 
-        self.draw()
+        moveSprite(self.sprite,self.xpos, self.ypos)
 
         return (self.xspeed != 0 or self.yspeed != 0)
 
@@ -256,7 +265,7 @@ while not gameOver:
             turnOver = False
             ballInHand = False
             ballInHandLabel.update('ball not in hand', 'black', 'white')
-            balls[15].setSpeed(500, 200)
+            balls[15].setSpeed(500,0)
     
     if ballInHand:
         balls[15].dragBall()
@@ -265,6 +274,7 @@ while not gameOver:
     # Move balls if turn active
     if not turnOver:
         ballMoving = False
+        stopBalls = sumSpeeds(balls)
         for ball in balls:
             if ball.move():
                 ballMoving = True
